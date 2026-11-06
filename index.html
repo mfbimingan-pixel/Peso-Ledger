@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Peso Ledger">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FFE27A">
+<meta name="color-scheme" content="light">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%23FFE27A'/%3E%3Ccircle cx='90' cy='90' r='56' fill='%23FF8FB1'/%3E%3Ctext x='90' y='116' font-size='76' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E%E2%82%B1%3C/text%3E%3C/svg%3E">
+<title>Peso Ledger</title>
+<style>
+:root{--y:#FFE27A;--p:#FF8FB1;--pd:#D94F80;--bg:#FFF8E1;--ink:#3B2A33;--mut:#8A7480;--card:#fff;--ok:#3E9B6B;--warn:#E8A317;--bad:#D63A4A}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 ui-rounded,"SF Pro Rounded",system-ui,-apple-system,sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom))}
+header{background:var(--y);padding:14px 18px 12px;border-radius:0 0 26px 26px}
+h1{margin:0;font-size:22px}header p{margin:2px 0 0;font-size:13px;color:#7a5a2a}
+main{padding:14px;max-width:560px;margin:0 auto}
+.card{background:var(--card);border-radius:18px;padding:14px;margin-bottom:12px;border:2px solid #FFE9A8}
+h2{font-size:16px;margin:0 0 10px}
+.big{font-size:30px;font-weight:700}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--bg);border-radius:14px;padding:10px}.stat small{color:var(--mut);display:block}.stat b{font-size:18px}
+.mut{color:var(--mut);font-size:13px}
+.bar{height:10px;background:#F3E7C8;border-radius:9px;overflow:hidden;margin:6px 0 2px}.bar i{display:block;height:100%;background:var(--ok);border-radius:9px}
+.in{color:var(--ok)}.out{color:var(--pd)}
+button,select,input{font:inherit;color:var(--ink)}
+.btn{background:var(--p);color:#fff;border:0;border-radius:14px;padding:11px 16px;font-weight:700}
+.btn.alt{background:var(--y);color:var(--ink)}.btn.sm{padding:6px 11px;font-size:14px}
+.btn.ghost{background:#fff;border:2px solid var(--p);color:var(--pd)}
+input,select{width:100%;padding:11px;border:2px solid #F0DFA8;border-radius:12px;background:#fff;margin:4px 0 10px}
+label{font-size:13px;color:var(--mut)}
+nav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid #FFE9A8;display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:0;background:none;padding:8px 2px;border-radius:14px;font-size:13px;color:var(--mut)}
+nav button b{display:block;font-size:20px;font-weight:400}
+nav button.on{background:var(--y);color:var(--ink);font-weight:700}
+.fab{position:fixed;right:16px;bottom:calc(78px + env(safe-area-inset-bottom));border-radius:50%;width:56px;height:56px;font-size:30px;padding:0;box-shadow:0 4px 12px #0003}
+.item{padding:10px 0;border-bottom:1px solid #F5EBCB}.item:last-child{border:0}
+.tag{font-size:12px;background:#FFE9A8;border-radius:8px;padding:2px 7px;margin-left:4px}
+.tag.bad{background:#FFD3D8;color:var(--bad)}
+#m{position:fixed;inset:0;background:#3B2A3399;display:none;align-items:flex-end;z-index:9}
+#m.on{display:flex}
+#sheet{background:var(--bg);width:100%;max-height:92%;overflow:auto;border-radius:24px 24px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto}
+.budrow{display:grid;grid-template-columns:1fr 100px 34px;gap:6px;align-items:center}.budrow input{margin:2px 0}
+.x{border:0;background:none;font-size:20px;color:var(--mut)}
+</style></head><body>
+<header><h1>♡ Peso Ledger</h1><p id="sub"></p></header>
+<main id="app"></main>
+<button class="btn fab" id="fab" aria-label="Add">+</button>
+<nav id="nav">
+<button data-t="dash"><b>🏠</b>Dashboard</button>
+<button data-t="tx"><b>🧾</b>Transactions</button>
+<button data-t="debt"><b>💳</b>Loans &amp; Cards</button>
+</nav>
+<div id="m"><div id="sheet"></div></div>
+<script>
+const K='pesoLedgerV1';
+const DEF=()=>({tx:[],loans:[],cards:[],budgets:[{cat:'Groceries',limit:5000},{cat:'Meralco',limit:3000},{cat:'Water',limit:500},{cat:'Load & Internet',limit:1500},{cat:'Remittances',limit:3000}]});
+let S;try{S=JSON.parse(localStorage.getItem(K))||DEF()}catch(e){S=DEF()}
+let tab='dash',storageOK=true;
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){storageOK=false}};
+const L=(id,name,monthly,left,due)=>({id,name,kind:'borrowed',total:+(monthly*left).toFixed(2),monthly,due});
+const ADD2=()=>({loans:[
+{id:'p1',name:'Petot Boquero',kind:'lent',total:20000,monthly:0,due:''},
+{id:'p2',name:'Joyce Aggabao-Ambas',kind:'lent',total:8000,monthly:0,due:''},
+{id:'m1',name:'Michael Dispo (Sir Mike)',kind:'borrowed',total:21000,monthly:0,due:''}],
+tx:[{id:'t_pay1',type:'income',amt:8494.94,date:'2026-11-03',cat:'Salary · IIB Payroll',ref:'',note:''},
+{id:'t_p1_3k',type:'loan',amt:3000,date:'2026-10-20',cat:'',ref:'p1',note:'InstaPay'},
+{id:'t_clean1',type:'expense',amt:2000,date:'2026-11-06',cat:'House cleaner',ref:'',note:'Weekly cleaner (₱2,000/week)'},
+{id:'t_paid1',type:'expense',amt:6494.94,date:'2026-11-05',cat:'Bills already paid (Nov 3–5)',ref:'',note:'Estimate: payroll fully spent. Delete if wrong.'},
+{id:'t_bonus',type:'income',amt:49000,date:'2026-11-06',cat:'Bonus',ref:'',note:''}]});
+const SEED=()=>({seeded:true,seedVer:6,tx:ADD2().tx,
+budgets:[{cat:'Groceries',limit:10000},{cat:'Transport',limit:5000},{cat:'House cleaner',limit:8000},{cat:'Internet · Asian Vision',limit:2500},{cat:'Water · Subic Water',limit:1500},{cat:'Self-care',limit:7000}],
+cards:[{id:'c1',name:'BankCom ••1017',limit:0,start:40096.92,due:5,rate:0},{id:'c2',name:'GCredit',limit:5000,start:1998,due:5,rate:0}],
+loans:[L('l1','GLoan · TQBP9712',1300.11,8,23),L('l2','GLoan · DBEL3441',1300.11,8,25),
+L('l3','SLoan ₱5,000 · Jul 13',1065.82,2,13),L('l4','SLoan ₱4,000 · Jul 18',519.34,9,18),L('l5','SLoan ₱7,200 · Aug 5',898.80,9,5),
+L('l6','SLoan ₱5,500 · Aug 13',686.58,9,13),L('l7','SLoan ₱10,000 · Sep 12',1526.13,7,12),L('l8','SLoan ₱3,400 · Sep 20',518.88,8,20),L('l9','SLoan ₱5,200 · Oct 21',1082.48,6,21),
+L('l10','SPayLater · November bill',5097.59,1,5),L('l11','SPayLater · Dec–Sep installments',699.54,10,5),
+L('l12','Other loan · due 22nd',6770,9,22),...ADD2().loans]});
+if(!S.seeded&&!S.tx.length&&!S.loans.length&&!S.cards.length){S=SEED();save()}
+if(S.seeded&&(S.seedVer||1)<3){const _t=ADD2().tx;const a=ADD2();a.loans.forEach(x=>{const y=S.loans.find(z=>z.id===x.id);if(!y)S.loans.push(x);else if(x.id==='m1'){y.total=x.total;y.name=x.name}});a.tx.forEach(x=>{if(!S.tx.some(y=>y.id===x.id))S.tx.push(x)});const b=S.budgets.find(b=>b.cat==='Tagalinis'||b.cat==='House cleaner');if(b&&b.limit===2000)b.limit=8000;S.seedVer=3;save()}
+if(S.seeded&&(S.seedVer||1)<4){const f=SEED();f.loans.forEach(x=>{const y=S.loans.find(z=>z.id===x.id);if(y)y.name=x.name});f.cards.forEach(x=>{const y=S.cards.find(z=>z.id===x.id);if(y)y.name=x.name});const R={'Tagalinis':'House cleaner','Transpo':'Transport','Internet (Asian Vision)':'Internet · Asian Vision','Water (Subic Water)':'Water · Subic Water'};S.budgets.forEach(b=>{if(R[b.cat])b.cat=R[b.cat]});S.tx.forEach(t=>{if(R[t.cat])t.cat=R[t.cat]});f.tx.forEach(x=>{const y=S.tx.find(z=>z.id===x.id);if(y){y.cat=x.cat;y.note=x.note}});S.seedVer=4;save()}
+if(S.seeded&&(S.seedVer||1)<5){ADD2().tx.forEach(x=>{if(!S.tx.some(y=>y.id===x.id))S.tx.push(x)});if(!S.budgets.some(b=>b.cat==='Self-care'))S.budgets.push({cat:'Self-care',limit:7000});S.seedVer=5;save()}
+if(S.seeded&&(S.seedVer||1)<6){S.tx=S.tx.filter(t=>t.id!=='t_bank1');S.seedVer=6;save()}
+const isIn=t=>t.type==='income'||(t.type==='loan'&&(S.loans.find(l=>l.id===t.ref)||{}).kind==='lent');
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>'₱'+Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const sum=a=>a.reduce((s,x)=>s+(+x.amt||0),0);
+const loanBal=l=>Math.max(0,l.total-sum(S.tx.filter(t=>t.type==='loan'&&t.ref===l.id)));
+const cardBal=c=>Math.max(0,sum(S.tx.filter(t=>t.type==='expense'&&t.ref===c.id))+(+c.start||0)-sum(S.tx.filter(t=>t.type==='card'&&t.ref===c.id)));
+const nth=n=>n+(['th','st','nd','rd'][(n%100>>3^1&&n%10<4)?n%10:0]||'th');
+
+function render(){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+  $('#sub').textContent=new Date().toLocaleDateString('en-PH',{month:'long',year:'numeric'})+(storageOK?'':' · not saving, check Safari settings');
+  $('#fab').style.display=tab==='dash'?'none':'block';
+  $('#app').innerHTML={dash:dash,tx:txList,debt:debt}[tab]();
+}
+
+function setIncome(){const n=parseFloat(prompt('Your total monthly take-home income (₱)',S.income||''));if(n>0){S.income=n;save();render()}}
+function markPaid(kind,id,iso){
+  let amt;
+  if(kind==='loan'){const l=S.loans.find(x=>x.id===id);if(!l)return;amt=Math.min(l.monthly,loanBal(l));if(!confirm('Mark '+l.name+' ('+fmt(amt)+') as paid today?'))return}
+  else{const c=S.cards.find(x=>x.id===id);if(!c)return;const r=parseFloat(prompt('Amount paid to '+c.name+' (₱)',cardBal(c).toFixed(2)));if(!(r>0))return;amt=r}
+  const t={id:uid(),type:kind,amt,date:today(),cat:'',ref:id,note:'Marked paid'};
+  S.tx.push(t);S.paid=S.paid||{};S.paid[id+'|'+iso]=t.id;save();render();
+}
+function dash(){
+  const td=new Date(),day=td.getDate(),dim=new Date(td.getFullYear(),td.getMonth()+1,0).getDate(),ym=today().slice(0,7),m=S.tx.filter(t=>t.date.startsWith(ym));
+  const inc=sum(m.filter(isIn)),exp=sum(m.filter(t=>t.type==='expense')),cardSpend=sum(m.filter(t=>t.type==='expense'&&t.ref));
+  const paid=sum(m.filter(t=>(t.type==='loan'&&!isIn(t))||t.type==='card'));
+  const left=inc-(exp-cardSpend)-paid;
+  const act=S.loans.filter(l=>l.kind==='borrowed'&&loanBal(l)>0);
+  const owe=act.reduce((a,l)=>a+loanBal(l),0)+S.cards.reduce((a,c)=>a+cardBal(c),0);
+  const owedMe=S.loans.filter(l=>l.kind==='lent').reduce((a,l)=>a+loanBal(l),0);
+  const fixed=act.reduce((a,l)=>a+(+l.monthly||0),0),mi=+S.income||0,pct=mi?fixed/mi*100:0;
+  const lv=pct>40?['var(--bad)','Too heavy. Avoid new loans for now.']:pct>30?['var(--warn)','Getting heavy. Avoid new monthly payments.']:['var(--ok)','Manageable.'];
+  let h=`<div class="card"><div class="mut">Left this month</div><div class="big ${left<0?'out':''}">${fmt(left)}</div>
+  <div class="grid" style="margin-top:10px;grid-template-columns:1fr 1fr 1fr"><div class="stat"><small>Income</small><b class="in" style="font-size:15px">${fmt(inc)}</b></div><div class="stat"><small>Spent</small><b class="out" style="font-size:15px">${fmt(exp)}</b></div><div class="stat"><small>Debt paid</small><b style="font-size:15px">${fmt(paid)}</b></div></div></div>`;
+  h+=`<div class="card"><h2>Debt</h2><div class="row"><div><div class="mut">You owe</div><b style="font-size:20px">${fmt(owe)}</b></div>${owedMe?`<div style="text-align:right"><div class="mut">Owed to you</div><b style="font-size:20px" class="in">${fmt(owedMe)}</b></div>`:''}</div>
+  <div style="margin-top:12px" class="row"><span class="mut">Fixed payments / month</span><b>${fmt(fixed)}</b></div>`;
+  if(mi)h+=`<div class="bar"><i style="width:${Math.min(100,pct)}%;background:${lv[0]}"></i></div><div class="row"><span style="color:${lv[0]};font-weight:700">${pct.toFixed(0)}% of income</span><button class="x" style="font-size:13px" onclick="setIncome()">Edit income</button></div><div class="mut">${lv[1]}</div>`;
+  else h+=`<button class="btn alt sm" style="margin-top:8px" onclick="setIncome()">Set monthly income</button>`;
+  const al=[];
+  S.budgets.forEach(b=>{const sp=sum(m.filter(t=>t.type==='expense'&&t.cat===b.cat));if(b.limit>0&&sp>b.limit)al.push(`${esc(b.cat)} is over budget by ${fmt(sp-b.limit)}.`)});
+  S.cards.forEach(c=>{const b=cardBal(c);if(b>0&&c.limit&&b/c.limit>.5)al.push(`${esc(c.name)} is at ${(b/c.limit*100).toFixed(0)}% of its limit.`)});
+  if(owedMe>0&&owe>0)al.push(`Collecting the ${fmt(owedMe)} owed to you could cover about ${Math.min(100,owedMe/owe*100).toFixed(0)}% of your debt.`);
+  S.cards.forEach(c=>{if(cardBal(c)>0&&!c.limit)al.push(`Set the credit limit for ${esc(c.name)} (Loans &amp; Cards).`)});
+  al.slice(0,2).forEach(x=>h+=`<div class="item" style="font-size:14px">💡 ${x}</div>`);
+  h+=`</div>`;
+  const dueISO=d=>{let y=td.getFullYear(),mo=td.getMonth(),dd=Math.min(+d,dim);if(+d<day){mo++;if(mo>11){mo=0;y++}dd=Math.min(+d,new Date(y,mo+1,0).getDate())}return new Date(Date.UTC(y,mo,dd)).toISOString().slice(0,10)};
+  const isPaid=(id,iso)=>{const t=(S.paid||{})[id+'|'+iso];return !!t&&S.tx.some(x=>x.id===t)};
+  const soon=[...act.filter(l=>l.due&&l.monthly>0).map(l=>({kind:'loan',id:l.id,n:l.name,a:Math.min(l.monthly,loanBal(l)),k:((+l.due-day)+dim)%dim,iso:dueISO(l.due)})),
+    ...S.cards.filter(c=>c.due&&cardBal(c)>0).map(c=>({kind:'card',id:c.id,n:c.name+' card',a:null,b:cardBal(c),k:((+c.due-day)+dim)%dim,iso:dueISO(c.due)}))].filter(x=>x.k<=14&&!isPaid(x.id,x.iso)).sort((a,b)=>a.k-b.k);
+  h+=`<div class="card"><h2>Next 14 days</h2>`;
+  if(soon.length){h+=soon.map(x=>`<div class="item row"><span>${esc(x.n)}<div class="mut">${x.k?'in '+x.k+' day'+(x.k>1?'s':''):'today'}</div></span><span class="row" style="gap:10px"><b>${x.a!=null?fmt(x.a):fmt(x.b)}</b><button class="btn sm alt" onclick="markPaid('${x.kind}','${x.id}','${x.iso}')">Paid</button></span></div>`).join('');
+    h+=`<div class="row" style="margin-top:8px"><b>Total</b><b>${fmt(sum(soon.map(x=>({amt:x.a!=null?x.a:x.b}))))}</b></div>`}
+  else h+=`<p class="mut" style="margin:0">All caught up ✓</p>`;
+  h+=`</div><div class="card"><h2>My budget</h2>`;
+  S.budgets.forEach(b=>{
+    const sp=sum(m.filter(t=>t.type==='expense'&&t.cat===b.cat)),pct2=b.limit>0?sp/b.limit*100:0;
+    h+=`<div class="item"><div class="row"><b>${esc(b.cat)}</b><span class="${pct2>100?'out':''}">${fmt(sp)} / ${fmt(b.limit)}</span></div>
+    <div class="bar"><i style="width:${Math.min(100,pct2)}%;background:${pct2>100?'var(--bad)':pct2>80?'var(--warn)':'var(--ok)'}"></i></div>
+    <div class="mut">${pct2>100?'Over by '+fmt(sp-b.limit):fmt(b.limit-sp)+' left'}</div></div>`;});
+  h+=`<button class="btn alt" style="margin-top:8px" onclick="editBudgets()">Edit budget</button></div>
+  <div class="card"><h2>Backup</h2><p class="mut" style="margin-top:0">Your data lives on this phone. Download a backup now and then.</p>
+  <button class="btn ghost sm" onclick="exportData()">Download backup</button> <button class="btn ghost sm" onclick="$('#imp').click()">Restore</button>
+  <input type="file" id="imp" accept=".json,application/json" hidden onchange="importData(this)"></div>`;
+  return h;
+}
+
+function txList(){
+  if(!S.tx.length)return `<div class="card"><h2>No transactions yet</h2><p class="mut">Tap + to add your first expense or income.</p></div>`;
+  const nm=t=>t.type==='loan'?(S.loans.find(l=>l.id===t.ref)||{}).name:t.type==='card'?(S.cards.find(c=>c.id===t.ref)||{}).name:t.cat;
+  return `<div class="card">`+[...S.tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).map(t=>{
+    const inc=isIn(t),c=t.type==='expense'&&t.ref?(S.cards.find(x=>x.id===t.ref)||{}).name:'';
+    return `<div class="item row" onclick="delTx('${t.id}')"><div><b>${esc(nm(t)||'—')}</b>${t.type==='loan'?'<span class="tag">loan</span>':t.type==='card'?'<span class="tag">card payment</span>':''}${c?`<span class="tag">${esc(c)}</span>`:''}
+    <div class="mut">${t.date}${t.note?' · '+esc(t.note):''}</div></div><b class="${inc?'in':'out'}">${inc?'+':'−'}${fmt(t.amt)}</b></div>`}).join('')+`<p class="mut" style="margin-bottom:0">Tap a row to delete it.</p></div>`;
+}
+
+function debt(){
+  let h=`<div class="card"><h2>Loans</h2>`;
+  if(!S.loans.length)h+=`<p class="mut">No loans yet. Tap + to add one.</p>`;
+  S.loans.forEach(l=>{const b=loanBal(l),pct=l.total?(1-b/l.total)*100:0,left=l.monthly>0?Math.ceil(b/l.monthly):0;
+    h+=`<div class="item"><div class="row"><b>${esc(l.name)}<span class="tag">${l.kind==='lent'?'lent':'borrowed'}</span></b><b>${fmt(b)}</b></div>
+    <div class="bar"><i style="width:${pct}%"></i></div><div class="mut">${b<=0?'Fully paid ✓':l.monthly>0?`${fmt(l.monthly)}/month · about ${left} payments left${l.due?' · due every '+nth(+l.due):''}`:(l.kind==='lent'?'Owes you · no fixed schedule':'No fixed schedule')}</div>
+    <div style="margin-top:6px"><button class="btn sm alt" onclick="addTx('loan','${l.id}')">${l.kind==='lent'?'Log received':'Log payment'}</button> <button class="x" onclick="delItem('loans','${l.id}')">🗑</button></div></div>`});
+  h+=`</div><div class="card"><h2>Credit cards</h2>`;
+  if(!S.cards.length)h+=`<p class="mut">No cards yet. Tap + to add one.</p>`;
+  S.cards.forEach(c=>{const b=cardBal(c),pct=c.limit?b/c.limit*100:0;
+    h+=`<div class="item"><div class="row"><b>${esc(c.name)}</b><b>${fmt(b)}</b></div>
+    <div class="bar"><i style="width:${Math.min(100,pct)}%;background:${pct>80?'var(--bad)':pct>50?'var(--warn)':'var(--ok)'}"></i></div>
+    <div class="mut">${c.limit?`${pct.toFixed(0)}% of ${fmt(c.limit)} used · ${fmt(Math.max(0,c.limit-b))} available`:'Credit limit not set'}${c.due?' · due every '+nth(+c.due):''}</div>
+    ${c.rate&&b>0?`<div class="mut">If unpaid, about ${fmt(b*c.rate/100)} interest next month</div>`:''}
+    <div style="margin-top:6px"><button class="btn sm alt" onclick="addTx('card','${c.id}')">Log payment</button> <button class="btn sm ghost" onclick="editLimit('${c.id}')">Edit limit</button> <button class="x" onclick="delItem('cards','${c.id}')">🗑</button></div></div>`});
+  return h+`</div>`;
+}
+
+function open(html){$('#sheet').innerHTML=html;$('#m').classList.add('on')}
+function close(){$('#m').classList.remove('on')}
+$('#m').addEventListener('click',e=>{if(e.target.id==='m')close()});
+const v=id=>$('#'+id).value;
+const num=id=>Math.max(0,parseFloat(v(id))||0);
+
+function addTx(type='expense',ref=''){
+  const cats=[...new Set([...S.budgets.map(b=>b.cat),...S.tx.map(t=>t.cat).filter(Boolean)])];
+  open(`<h2>Add transaction</h2>
+  <label>Type</label><select id="f_type" onchange="txFields()"><option value="expense">Expense</option><option value="income">Income</option><option value="loan">Loan payment</option><option value="card">Card payment</option></select>
+  <label>Amount (₱)</label><input id="f_amt" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
+  <label>Date</label><input id="f_date" type="date" value="${today()}">
+  <div id="f_dyn"></div>
+  <label>Note (optional)</label><input id="f_note">
+  <div class="row"><button class="btn ghost" onclick="close()">Cancel</button><button class="btn" onclick="saveTx()">Save</button></div>`);
+  $('#f_type').value=type;window._ref=ref;window._cats=cats;txFields();
+}
+function txFields(){
+  const t=v('f_type'),opt=(a,sel)=>a.map(x=>`<option value="${x.id}" ${x.id===window._ref?'selected':''}>${esc(x.name)}</option>`).join('');
+  let h='';
+  if(t==='expense')h=`<label>Category</label><input id="f_cat" list="cl" placeholder="e.g. Groceries"><datalist id="cl">${window._cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+    <label>Paid with</label><select id="f_ref"><option value="">Cash / debit</option>${opt(S.cards)}</select>`;
+  else if(t==='income')h=`<label>Source</label><input id="f_cat" placeholder="e.g. Salary">`;
+  else{const a=t==='loan'?S.loans:S.cards;h=a.length?`<label>${t==='loan'?'Which loan':'Which card'}</label><select id="f_ref">${opt(a)}</select>`:`<p class="out">Add a ${t==='loan'?'loan':'card'} first in Loans &amp; Cards.</p>`}
+  $('#f_dyn').innerHTML=h;
+}
+function saveTx(){
+  const type=v('f_type'),amt=num('f_amt');
+  if(!amt)return alert('Enter an amount.');
+  const ref=$('#f_ref')?v('f_ref'):'',cat=$('#f_cat')?v('f_cat').trim():'';
+  if((type==='loan'||type==='card')&&!ref)return alert('Choose which one you are paying.');
+  if((type==='expense'||type==='income')&&!cat)return alert('Enter a category.');
+  S.tx.push({id:uid(),type,amt,date:v('f_date')||today(),cat,ref,note:v('f_note').trim()});
+  save();close();render();
+}
+function editLimit(id){const c=S.cards.find(x=>x.id===id),n=parseFloat(prompt('Credit limit (₱) for '+c.name,c.limit||''));if(n>0){c.limit=n;save();render()}}
+function delTx(id){if(confirm('Delete this transaction?')){S.tx=S.tx.filter(t=>t.id!==id);save();render()}}
+function delItem(k,id){if(confirm('Delete this? Its payments stay in Transactions.')){S[k]=S[k].filter(x=>x.id!==id);save();render()}}
+
+function addDebt(){
+  open(`<h2>Add loan or card</h2><div class="row" style="margin-bottom:10px"><button class="btn" id="b1" onclick="debtForm('loan')">Loan</button><button class="btn alt" id="b2" onclick="debtForm('card')">Credit card</button></div><div id="d_dyn"></div>`);debtForm('loan');
+}
+function debtForm(k){
+  $('#b1').className='btn'+(k==='loan'?'':' alt');$('#b2').className='btn'+(k==='card'?'':' alt');
+  $('#d_dyn').innerHTML=k==='loan'?`<label>Name</label><input id="d_name" placeholder="e.g. SSS salary loan">
+  <label>Kind</label><select id="d_kind"><option value="borrowed">I borrowed</option><option value="lent">I lent</option></select>
+  <label>Total to repay, with interest (₱)</label><input id="d_total" type="number" inputmode="decimal">
+  <label>Monthly payment (₱)</label><input id="d_mo" type="number" inputmode="decimal">
+  <label>Due day of month (1–31, optional)</label><input id="d_due" type="number" inputmode="numeric" min="1" max="31">
+  <div class="row"><button class="btn ghost" onclick="close()">Cancel</button><button class="btn" onclick="saveDebt('loan')">Save</button></div>`
+  :`<label>Card name</label><input id="d_name" placeholder="e.g. BankCom">
+  <label>Credit limit (₱)</label><input id="d_limit" type="number" inputmode="decimal">
+  <label>Current balance (₱)</label><input id="d_start" type="number" inputmode="decimal" placeholder="0">
+  <label>Due day of month (1–31)</label><input id="d_due" type="number" inputmode="numeric" min="1" max="31">
+  <label>Interest per month, % (optional)</label><input id="d_rate" type="number" inputmode="decimal" step="0.01">
+  <div class="row"><button class="btn ghost" onclick="close()">Cancel</button><button class="btn" onclick="saveDebt('card')">Save</button></div>`;
+}
+function saveDebt(k){
+  const name=v('d_name').trim();if(!name)return alert('Enter a name.');
+  if(k==='loan'){if(!num('d_total'))return alert('Enter the total to repay.');S.loans.push({id:uid(),name,kind:v('d_kind'),total:num('d_total'),monthly:num('d_mo'),due:num('d_due')||''})}
+  else{if(!num('d_limit'))return alert('Enter the credit limit.');S.cards.push({id:uid(),name,limit:num('d_limit'),start:num('d_start'),due:num('d_due')||'',rate:num('d_rate')})}
+  save();close();render();
+}
+
+function editBudgets(){
+  open(`<h2>Edit budget</h2><p class="mut" style="margin-top:0">Monthly limit per category.</p><div id="bl"></div>
+  <button class="btn alt sm" onclick="S.budgets.push({cat:'',limit:0});bRows()">+ Add category</button>
+  <div class="row" style="margin-top:14px"><button class="btn ghost" onclick="close()">Cancel</button><button class="btn" onclick="saveBudgets()">Save</button></div>`);bRows();
+}
+function bRows(){
+  const cur=[...document.querySelectorAll('.bc')].map((e,i)=>({cat:e.value,limit:+document.querySelectorAll('.bm')[i].value||0}));
+  if(cur.length===S.budgets.length)S.budgets=cur.map((x,i)=>x);
+  $('#bl').innerHTML=S.budgets.map((b,i)=>`<div class="budrow"><input class="bc" value="${esc(b.cat)}" placeholder="Category"><input class="bm" type="number" inputmode="decimal" value="${b.limit}"><button class="x" onclick="S.budgets.splice(${i},1);bRows()">✕</button></div>`).join('');
+}
+function saveBudgets(){
+  S.budgets=[...document.querySelectorAll('.bc')].map((e,i)=>({cat:e.value.trim(),limit:+document.querySelectorAll('.bm')[i].value||0})).filter(b=>b.cat);
+  save();close();render();
+}
+
+function exportData(){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));
+  a.download='peso-ledger-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();
+}
+function importData(inp){
+  const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.tx||!d.loans||!d.cards||!d.budgets)throw 0;if(confirm('Replace current data with this backup?')){S=d;save();render()}}catch(e){alert('That file is not a Peso Ledger backup.')}};
+  r.readAsText(f);
+}
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render();scrollTo(0,0)});
+$('#fab').onclick=()=>tab==='debt'?addDebt():addTx();
+render();
+</script></body></html>
